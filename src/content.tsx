@@ -30,17 +30,34 @@ import { DynamicIsland } from "./dynamic-island";
 import createShadowRoot from "./shadow-root";
 import style from "./index.css?inline";
 import { MenuProvider } from "@/components/ui/command";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrainProvider } from "./brain";
 
 void (async () => {
+  if (localStorage.getItem("vinxi-island") === "hidden") {
+    return;
+  }
+
   const root = createShadowRoot("vinxi-island", {
     style: import.meta.env.DEV ? "" : style,
     mode: import.meta.env.DEV ? "open" : "closed",
   });
+
+  globalThis.hideIsland = () => {
+    localStorage.setItem("vinxi-island", "hidden");
+    root.unmount();
+  };
+
+  const queryClient = new QueryClient();
   root.render(
     <React.StrictMode>
-      <MenuProvider config={{}}>
-        <DynamicIsland />
-      </MenuProvider>
+      <QueryClientProvider client={queryClient}>
+        <MenuProvider config={{}}>
+          <BrainProvider>
+            <DynamicIsland />
+          </BrainProvider>
+        </MenuProvider>
+      </QueryClientProvider>
     </React.StrictMode>
   );
 

@@ -1,12 +1,35 @@
 import { Button, buttonVariants } from "@/components/ui/button";
-import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
+import {
+  Suspense,
+  cache,
+  startTransition,
+  use,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { create } from "zustand";
 import { combine } from "zustand/middleware";
 import { Input } from "@/components/ui/input";
 import { useKmenu, useShortcut } from "@/components/ui/command";
 import Palette from "./cmd";
+
+import { MotionValue, useSpring, useTransform } from "framer-motion";
+import { useMutation } from "@tanstack/react-query";
+import { useModeValue, useTodosTable } from "./brain/ui-react";
+import { PARTYKIT_HOST, brainContext, useBrain } from "./brain";
+import { appendCorsHeaders } from "h3";
+import { Dock } from "./app-dock";
+import { useSQL } from "./sql";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 const useDynamicIsland = create(
   combine(
@@ -100,7 +123,9 @@ export function DynamicIsland() {
 
   const size = useScreenSize();
 
-  const state = useDynamicIsland().mode;
+  const state = useModeValue();
+
+  console.log(state);
 
   function getCurrentComponent() {
     switch (state) {
@@ -118,6 +143,8 @@ export function DynamicIsland() {
         return <Idle />;
     }
   }
+
+  const dragControls = useDragControls();
 
   useLayoutEffect(() => {
     let element = islandRef.current;
@@ -143,99 +170,107 @@ export function DynamicIsland() {
     }
   }, [state]);
 
+  let anotherRef = useRef();
+
   return (
     <>
-      {/* <Container
-      actions={[
-        {
-          label: "Idle",
-          onClick: () => {
-            useDynamicIsland.setState({ mode: "idle" });
-            setAnimationStyle(animationStates[`${state}-idle`]);
-          },
-        },
-        {
-          label: "Listening",
-          onClick: () => {
-            useDynamicIsland.setState({ mode: "listening" });
-            setAnimationStyle(animationStates[`${state}-listening`]);
-          },
-        },
-        {
-          label: "Timer",
-          onClick: () => {
-            useDynamicIsland.setState({ mode: "timer" });
-            setAnimationStyle(animationStates[`${state}-timer`]);
-          },
-        },
-        {
-          label: "Ring Mode",
-          onClick: () => {
-            useDynamicIsland.setState({ mode: "ring-mode" });
-            setAnimationStyle(animationStates[`${state}-ring-mode`]);
-          },
-        },
-        // ... (Other actions)
-      ]}
-      className="dark h-[200px] items-start justify-center pb-32 dark:bg-gray-200"
-    > */}
       <CommandPlt />
-      <div className="fixed dark left-1/2 -translate-x-1/2 bottom-0 z-[100000]">
-        <motion.div
-          // layout
-          // layoutRoot
-          initial={{
-            // x: size[0] / 2 - currentWidth / 2,
-            y: -8,
-          }}
-          animate={{
-            // x: size[0] / 2 - currentWidth / 2,
-            y: -8,
-          }}
-          // style={{
-          //   transform: `translateX(${
-          //     0
-          //     // size[0] / 2 - currentWidth / 2
-          //   }px) translateY(${
-          //     -8
-          //     // size[1] / 2 - currentHeight / 2
-          //   }px)`,
-          // }}
-          style={{
-            x: 0,
-            y: -8,
-          }}
-        >
+      <div className="fixed dark left-1/2 -translate-x-1/2 bottom-3 z-[100000]">
+        <Suspense>
           <motion.div
-            layout
-            transition={{ type: "spring", bounce: springBounce }}
-            style={{ borderRadius: "32px" }}
-            className="min-w-[100px] rounded-full bg-scale-1 shadow-lg shadow-scale-3 drop-shadow-scale-1"
+            drag
+            dragControls={dragControls}
+            dragListener={false}
+            ref={anotherRef}
+            onPointerDown={(e) => {
+              console.log(e);
+
+              let target = e.target as HTMLElement;
+              if (target.classList.contains("undraggable")) {
+                return;
+              }
+
+              let parent = target.parentElement;
+              while (parent && parent !== anotherRef.current) {
+                if (parent.classList.contains("undraggable")) {
+                  return;
+                }
+                parent = parent.parentElement;
+              }
+
+              dragControls.start(e);
+            }}
+            // dragSnapToOrigin
+            // layout
+            // layoutRoot
+            initial={{
+              // x: size[0] / 2 - currentWidth / 2,
+              y: 0,
+            }}
+            animate={{
+              // x: size[0] / 2 - currentWidth / 2,
+              y: 0,
+            }}
+            // style={{
+            //   transform: `translateX(${
+            //     0
+            //     // size[0] / 2 - currentWidth / 2
+            //   }px) translateY(${
+            //     -8
+            //     // size[1] / 2 - currentHeight / 2
+            //   }px)`,
+            // }}
+            style={{
+              x: document.body.scrollHeight > window.innerHeight ? 8 : 0,
+
+              y: 0,
+            }}
           >
-            <motion.div
-              ref={islandRef}
-              transition={{ type: "spring", bounce: springBounce }}
-              key={state}
-              initial={{
-                scale: 0.9,
-                opacity: 0,
-                filter: "blur(5px)",
-                originX: 0.5,
-                originY: 0.5,
-              }}
-              animate={{
-                scale: 1,
-                opacity: 1,
-                filter: "blur(0px)",
-                originX: 0.5,
-                originY: 0.5,
-                transition: { delay: 0.3 },
-              }}
-            >
-              {getCurrentComponent()}
-            </motion.div>
-          </motion.div>
-          <div className="pointer-events-none absolute left-1/2 top-0 flex h-[200px] w-[300px] -translate-x-1/2 items-start justify-center">
+            <ContextMenu modal={false}>
+              <ContextMenuTrigger asChild>
+                <motion.div
+                  layout
+                  transition={{ type: "spring", bounce: springBounce }}
+                  style={{ borderRadius: "32px" }}
+                  className="min-w-[100px] rounded-full bg-scale-1 
+              //shadow-md //shadow-scale-3 //drop-shadow-scale-1
+              "
+                >
+                  <motion.div
+                    ref={islandRef}
+                    transition={{ type: "spring", bounce: springBounce }}
+                    key={state}
+                    initial={{
+                      scale: 0.9,
+                      opacity: 0,
+                      filter: "blur(5px)",
+                      originX: 0.5,
+                      originY: 0.5,
+                    }}
+                    animate={{
+                      scale: 1,
+                      opacity: 1,
+                      filter: "blur(0px)",
+                      originX: 0.5,
+                      originY: 0.5,
+                      transition: { delay: 0.3 },
+                    }}
+                  >
+                    {getCurrentComponent()}
+                  </motion.div>
+                </motion.div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem
+                  onClick={() => {
+                    globalThis.hideIsland();
+                  }}
+                >
+                  Hide
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+            {/* <div className="pointer-events-none absolute left-1/2 top-0 flex h-[200px] w-[300px] -translate-x-1/2 items-start justify-center">
             <AnimatePresence mode="popLayout" custom={animationStyle}>
               <motion.div
                 initial={{ opacity: 0 }}
@@ -245,8 +280,9 @@ export function DynamicIsland() {
                 {getCurrentComponent()}
               </motion.div>
             </AnimatePresence>
-          </div>
-        </motion.div>
+          </div> */}
+          </motion.div>
+        </Suspense>
       </div>
       {/* </Container> */}
     </>
@@ -524,8 +560,29 @@ function Idle() {
   );
 }
 
+function Inner() {
+  const data = useSQL("SELECT * FROM likes");
+  return null;
+}
+
+function useSQLMutation(sql: string) {
+  return useMutation({
+    mutationFn: async (params: any[]) => {
+      const res = await fetch(`http://${PARTYKIT_HOST}/parties/main/brain`, {
+        method: "POST",
+        body: JSON.stringify({ sql, action: "exec", params }),
+      });
+      return await res.json();
+    },
+  });
+}
+
 function Like() {
   const [state, setState] = useState(false);
+  const brain = useBrain();
+  const action = useSQLMutation(
+    `INSERT INTO likes (url, title, datetime, type) VALUES (?, ?, ?, ?)`
+  );
   return (
     <motion.div
       layout
@@ -543,6 +600,9 @@ function Like() {
         // ]
       }}
     >
+      <Suspense>
+        <Inner />
+      </Suspense>
       <motion.div layout className="flex flex-row relative">
         {/* <div className="absolute top-2 left-2 flex flex-row space-x-1 items-center text-white bg-tomato-8 p-1 rounded-full">
           <span className="icon-[ic--round-favorite] text-xs"></span>
@@ -557,7 +617,7 @@ function Like() {
       </motion.div>
       <AnimatePresence initial={false} mode="popLayout">
         {state ? (
-          <motion.button
+          <motion.div
             layout
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -570,40 +630,53 @@ function Like() {
                 duration: 1,
               },
             }}
+            className="undraggable"
             // style={{
             //   originX: message.user === "me" ? 1 : 0,
             // }}
             // initial={{ y: "100%", opacity: 0 }}
             // animate={{ y: 0, opacity: 1 }}
             // exit={{ opacity: 0 }}
-            className={buttonVariants({
-              className:
-                "rounded-full bg-tomato-8 text-sm hover:bg-tomato-6 text-tomato-12 flex flex-row space-x-1 items-center",
-            })}
-            onClick={() => {
-              useDynamicIsland.setState({
-                mode: "idle",
-              });
-            }}
+            // className={buttonVariants({
+            //   className:
+            //     "rounded-full bg-tomato-8 text-sm hover:bg-tomato-6 text-tomato-12 flex flex-row space-x-1 items-center",
+            // })}
+            onClick={async () => {}}
           >
-            <span className="icon-[ic--round-favorite] text-base"></span>
-            <span>Like</span>
-          </motion.button>
+            {/* <span className="icon-[ic--round-favorite] text-base"></span>
+            <span>Like</span> */}
+            abcas, ad, asd, ada, sda,d
+          </motion.div>
         ) : null}
       </AnimatePresence>
-      <Button
-        size="sm"
-        className="rounded-full bg-tomato-8 text-sm hover:bg-tomato-6 text-tomato-12 flex flex-row space-x-1 items-center"
-        onClick={() => {
-          // useDynamicIsland.setState({
-          //   mode: "idle",
-          // });
-          setState(true);
-        }}
-      >
-        <span className="icon-[ic--round-favorite] text-sm"></span>
-        <span>Like</span>
-      </Button>
+      <div className="flex flex-row space-x-2">
+        <motion.button
+          className="w-7 h-7 bg-slate-6 rounded-full"
+          onClick={() => {
+            setState(true);
+          }}
+        >
+          <span className="icon-[bi--tags] text-slate-12 text-sm" />
+        </motion.button>
+        <Button
+          size="xs"
+          className="rounded-full flex-1 bg-tomato-8 text-sm hover:bg-tomato-6 text-tomato-12 flex flex-row space-x-1 items-center"
+          onClick={async () => {
+            await action.mutateAsync([
+              window.location.href,
+              document.title,
+              Date.now().toLocaleString("en-us"),
+              "website",
+            ]);
+            startTransition(() => {
+              brain.setModeValue("idle");
+            });
+          }}
+        >
+          <span className="icon-[ic--round-favorite] text-sm"></span>
+          <span>Like</span>
+        </Button>
+      </div>
       {/* <Input className="text-foreground rounded-full h-full" /> */}
       {/* Hello */}
       {/* <div className="bg-white h-full w-full"></div> */}
@@ -641,19 +714,111 @@ function HostTitle(props) {
   return <h1 {...props}>{state}</h1>;
 }
 
+const fontSize = 30;
+const padding = 15;
+const height = fontSize + padding;
+
+export function Count() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let i = setInterval(() => {
+      setCount((count) => count + 1);
+    }, 1000);
+
+    return () => {
+      clearInterval(i);
+    };
+  }, []);
+
+  return (
+    <span className="tabular-nums">
+      {Math.floor(count / 60)}:
+      {Math.floor(count % 60).toLocaleString("en-US", {
+        minimumIntegerDigits: 2,
+        useGrouping: false,
+      })}
+    </span>
+  );
+}
+
+function Counter({ value }: { value: number }) {
+  return (
+    <div style={{ fontSize }} className="flex overflow-hidden leading-none">
+      <Digit place={100} value={value} />
+      <Digit place={10} value={value} />
+      <Digit place={1} value={value} />
+    </div>
+  );
+}
+
+function Digit({ place, value }: { place: number; value: number }) {
+  let valueRoundedToPlace = Math.floor(value / place);
+  let animatedValue = useSpring(valueRoundedToPlace);
+
+  useEffect(() => {
+    animatedValue.set(valueRoundedToPlace);
+  }, [animatedValue, valueRoundedToPlace]);
+
+  return (
+    <div style={{ height }} className="relative w-[12px] tabular-nums">
+      {[...Array(10).keys()].map((i) => (
+        <Number key={i} mv={animatedValue} number={i} />
+      ))}
+    </div>
+  );
+}
+
+function Number({ mv, number }: { mv: MotionValue; number: number }) {
+  let y = useTransform(mv, (latest) => {
+    let placeValue = latest % 10;
+    let offset = (10 + number - placeValue) % 10;
+
+    let memo = offset * height;
+
+    if (offset > 5) {
+      memo -= 10 * height;
+    }
+
+    return -memo;
+  });
+
+  let opacity = useTransform(y, [-10, 0, 10], [0, 1, 0]);
+
+  // opacity = useSpring(opacity, {
+  //   mass: 0.1,
+  //   stiffness: 150,
+  //   damping: 12,
+  // });
+  return (
+    <motion.span
+      style={{ y, opacity }}
+      transition={{
+        duration: 0.1,
+      }}
+      className="text-sm absolute inset-0 flex items-center justify-center"
+    >
+      {number}
+    </motion.span>
+  );
+}
+
 function Listening() {
+  const todos = useTodosTable();
+
+  const brain = useBrain();
+  console.log(todos);
   return (
     <div className="flex w-full items-center gap-2 p-4 py-3">
       <button
         aria-label="Pause timer"
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5A3C07] transition-colors hover:bg-[#694608]"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-4 transition-colors hover:bg-[#694608]"
       >
         <div>
           <svg
             viewBox="0 0 10 13"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4 fill-current text-[#FDB000]"
+            className="h-3 w-3 fill-current text-amber-9"
           >
             <path d="M1.03906 12.7266H2.82031C3.5 12.7266 3.85938 12.3672 3.85938 11.6797V1.03906C3.85938 0.328125 3.5 0 2.82031 0H1.03906C0.359375 0 0 0.359375 0 1.03906V11.6797C0 12.3672 0.359375 12.7266 1.03906 12.7266ZM6.71875 12.7266H8.49219C9.17969 12.7266 9.53125 12.3672 9.53125 11.6797V1.03906C9.53125 0.328125 9.17969 0 8.49219 0H6.71875C6.03125 0 5.67188 0.359375 5.67188 1.03906V11.6797C5.67188 12.3672 6.03125 12.7266 6.71875 12.7266Z"></path>
           </svg>
@@ -661,31 +826,35 @@ function Listening() {
       </button>
       <button
         onClick={() => {
-          useDynamicIsland.setState({
-            mode: "idle",
-          });
+          brain.setModeValue("idle");
         }}
         aria-label="Exit"
-        className="mr-12 flex h-10 w-10 items-center justify-center rounded-full bg-[#3C3D3C] text-white transition-colors hover:bg-[#4A4B4A]"
+        className="mr-12 flex h-8 w-8 items-center justify-center rounded-full bg-green-3 text-white transition-colors hover:bg-green-5"
       >
-        <svg
+        {/* <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
           stroke-width="2"
           stroke="currentColor"
-          className="h-6 w-6"
+          className="h-5 w-5"
         >
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
             d="M6 18L18 6M6 6l12 12"
           ></path>
-        </svg>
+        </svg> */}
+        <span className="icon-[ph--check-bold] text-green-10" />
       </button>
       <div className="flex items-baseline gap-1.5 text-[#FDB000]">
-        <span className="text-sm font-semibold leading-none">Timer</span>
-        <div className="relative overflow-hidden w-[64px] text-3xl font-light">
+        <span
+          className="text-lg font-semibold leading-none text-foreground"
+          contentEditable
+        >
+          Do this task by today
+        </span>
+        <div className="relative overflow-hidden w-[64px] text-2xl font-light">
           0:
           <div
             className="inline-block tabular-nums"
@@ -703,68 +872,6 @@ function Listening() {
         </div>
       </div>
     </div>
-  );
-}
-
-import {
-  MotionValue,
-  useMotionValue,
-  useSpring,
-  useTransform,
-} from "framer-motion";
-
-function Dock() {
-  let mouseX = useMotionValue(Infinity);
-
-  return (
-    <motion.div
-      onMouseMove={(e) => mouseX.set(e.pageX)}
-      onMouseLeave={() => mouseX.set(Infinity)}
-      className="mx-auto flex h-9 items-end gap-2 px-3 py-2"
-    >
-      {[...Array(5).keys()].map((i) => (
-        <AppIcon mouseX={mouseX} key={i} index={i} />
-      ))}
-    </motion.div>
-  );
-}
-
-function AppIcon({ mouseX, index }: { mouseX: MotionValue }) {
-  let ref = useRef<HTMLDivElement>(null);
-
-  let distance = useTransform(mouseX, (val) => {
-    let bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0 };
-
-    return val - bounds.x - bounds.width / 2;
-  });
-
-  let widthSync = useTransform(distance, [-150, 0, 150], [20, 40, 20]);
-  let fontSizeSync = useTransform(distance, [-150, 0, 150], [1, 1.75, 1]);
-  let width = useSpring(widthSync, { mass: 0.1, stiffness: 150, damping: 12 });
-  let fontSize = useSpring(fontSizeSync, {
-    mass: 0.1,
-    stiffness: 150,
-    damping: 12,
-  });
-
-  return (
-    <motion.div
-      ref={ref}
-      onClick={() => {
-        useDynamicIsland.setState({
-          mode: index === 0 ? "like" : "messages",
-        });
-      }}
-      style={{ width }}
-      className="aspect-square w-5 rounded-full bg-tomato-3 flex flex-row items-center justify-center"
-    >
-      <motion.span
-        className="icon-[ic--round-favorite] text-tomato-8 text-sm"
-        style={{
-          scale: fontSize,
-        }}
-      />
-    </motion.div>
   );
 }
 
@@ -788,6 +895,7 @@ seeds = seeds.map((seed, i) => ({ ...seed, id: i + 1 }));
 function Home() {
   const [messages, setMessages] = useState(seeds);
   const [lastChangedIndex, setLastChangedIndex] = useState(null);
+  const brain = useBrain();
 
   function addMessage() {
     let index = Math.floor(Math.random() * messages.length);
@@ -865,9 +973,7 @@ function Home() {
         </button>
         <button
           onClick={() => {
-            useDynamicIsland.setState({
-              mode: "idle",
-            });
+            brain.setModeValue("idle");
           }}
           className="hover:bg-gray-100 active:bg-gray-200 rounded-full inline-flex items-center justify-center p-1.5 text-gray-500 hover:text-gray-700"
         >

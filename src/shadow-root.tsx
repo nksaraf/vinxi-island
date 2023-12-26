@@ -25,6 +25,7 @@ const createShadowRoot = (
   } = options ?? {};
   const shadowHost = createElement(`<${name}></${name}>`);
   const shadowRoot = shadowHost.attachShadow({ mode });
+  globalThis.shadowRoot = shadowRoot;
   const appRoot = createElement(`<div id="app"></div>`);
   const appStyle =
     style && createElement(`<style type="text/css">${style}</style>`);

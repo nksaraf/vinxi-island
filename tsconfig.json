@@ -8,7 +8,7 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "jsx": "preserve",
-    "types": ["vite/client"],
+    "types": ["vite/client", "react/experimental"],
     "noEmit": true,
     "paths": {
       "@/*": ["./@/*"]
