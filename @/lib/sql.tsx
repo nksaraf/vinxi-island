@@ -1,5 +1,16 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { PARTYKIT_HOST } from "./brain";
+import { PARTYKIT_HOST } from "../brain";
+import {
+  useMutation, //       return chrome.runtime.getURL(`/assets/${file}`);
+  //     },
+  //     print: console.log,
+  //     printErr: console.error,
+  //   });
+  //   const db = new sqlite3.oo1.DB("/mydb.sqlite3", "ct");
+  //   return db;
+  // });
+  // console.log(await getDB());
+} from "@tanstack/react-query";
 
 // import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 // const getDB = cache(async () => {
@@ -30,4 +41,21 @@ export function useSQL(sql: string, params: any[]) {
       return await res.json();
     },
   }).data;
+}
+export function useSQLMutation<K extends string>(sql: string, paramDefs: K[]) {
+  return useMutation({
+    mutationFn: async (params: {
+      [key in K]: any;
+    }) => {
+      const res = await fetch(`http://${PARTYKIT_HOST}/parties/main/brain`, {
+        method: "POST",
+        body: JSON.stringify({
+          sql,
+          action: "exec",
+          params: paramDefs.map((key) => params[key]),
+        }),
+      });
+      return await res.json();
+    },
+  });
 }

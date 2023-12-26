@@ -8,8 +8,7 @@ const store = createStore()
       id: { type: "string", primary: true },
       text: { type: "string" },
       done: { type: "boolean" },
-      
-    }
+    },
     // layers: {
     //   id: { type: "string", primary: true },
     //   name: { type: "string" },
@@ -125,8 +124,8 @@ const tools = createTools(store);
 const [prettyDTs, prettyTs, prettyUiReactDTs, prettyUiReactTsx] =
   await tools.getPrettyStoreApi("brain");
 
-fs.writeFileSync("src/brain/brain.d.ts", prettyDTs, "utf-8");
-fs.writeFileSync("src/brain/brain.ts", prettyTs, "utf-8");
-fs.writeFileSync("src/brain/brain-ui-react.d.ts", prettyUiReactDTs, "utf-8");
-fs.writeFileSync("src/brain/ui-react.tsx", prettyUiReactTsx, "utf-8");
+fs.writeFileSync("@/brain/brain.d.ts", prettyDTs, "utf-8");
+fs.writeFileSync("@/brain/brain.ts", prettyTs, "utf-8");
+fs.writeFileSync("@/brain/brain-ui-react.d.ts", prettyUiReactDTs, "utf-8");
+fs.writeFileSync("@/brain/ui-react.tsx", prettyUiReactTsx, "utf-8");
 console.log("generated brain files");

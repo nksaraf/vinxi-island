@@ -7,8 +7,8 @@ import {
   useTransform,
 } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useBrain } from "./brain";
-import { extensions } from "./extensions";
+import { useBrain } from "../brain";
+import { extensions } from "../../src/extensions";
 
 console.log(extensions);
 export function Dock() {

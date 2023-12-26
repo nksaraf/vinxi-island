@@ -209,4 +209,7 @@ const Palette: FC = () => {
   );
 };
 
-export default Palette;
+export function CommandPalette() {
+  const { toggle } = useKmenu();
+  return <Palette />;
+}

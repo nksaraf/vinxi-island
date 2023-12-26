@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
-import { AppIcon } from "./app-dock";
-import { Count } from "./dynamic-island";
-import { useSQL } from "./sql";
+import { AppIcon } from "@/components/dock";
+import { Timer } from "@/components/timer";
+import { useSQL } from "@/lib/sql";
 
 export const extensions = [
   {
@@ -20,7 +20,7 @@ export const extensions = [
           {...props}
           icon={cn(
             "icon-[ic--round-favorite]",
-            data.length > 0 ? "text-tomato-8" : " text-slate-8"
+            data.length > 0 ? "text-tomato-8" : "text-slate-8"
           )}
           className={cn(data.length > 0 ? "bg-tomato-3" : " bg-slate-3")}
         />
@@ -36,7 +36,7 @@ export const extensions = [
     height: 20,
     children: (
       <>
-        <Count />
+        <Timer />
       </>
     ),
     AppIcon: AppIcon,
